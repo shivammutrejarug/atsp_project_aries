@@ -157,8 +157,7 @@ class JoeyAgent(DemoAgent):
                 "requested_attributes": revealed,
                 "self_attested_attributes": self_attested,
             }
-
-            log_status("#26 Send the proof to X")
+            log_status("#26 Send the proof to")
             await self.admin_POST(
                 (
                     "/present-proof/records/"

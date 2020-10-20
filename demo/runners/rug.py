@@ -86,7 +86,7 @@ class RugAgent(DemoAgent):
         )
 
         if state == "request_received":
-            log_status("#17 Issue credential to X")
+            log_status("#17 Issue credential")
             # issue credentials based on the credential_definition_id
             cred_attrs = self.cred_attrs[message["credential_definition_id"]]
             cred_preview = {
@@ -131,6 +131,7 @@ class RugAgent(DemoAgent):
             proof = await self.admin_POST(
                 f"/present-proof/records/{presentation_exchange_id}/verify-presentation"
             )
+            log_status(proof)
             self.log("Proof =", proof["verified"])
 
     async def handle_basicmessages(self, message):
@@ -185,9 +186,9 @@ async def main(
                 _,  # schema id
                 credential_definition_id,
             ) = await agent.register_schema_and_creddef(
-                "ga4gh schema",
+                "degree schema",
                 version,
-                ["name", "role", "affiliation", "expiry_date"],
+                ["name", "role", "affiliation", "expiry_date", "age", "timestamp"],
                 support_revocation=revocation,
                 revocation_registry_size=TAILS_FILE_COUNT if revocation else None,
             )
@@ -197,7 +198,7 @@ async def main(
         with log_timer("Generate invitation duration:"):
             # Generate an invitation
             log_status(
-                "#7 Create a connection to alice and print out the invite details"
+                "#7 Create a connection and print out the invite details"
             )
             connection = await agent.admin_POST("/connections/create-invitation")
 
@@ -238,7 +239,7 @@ async def main(
                     )
                 )
             elif option == "1":
-                log_status("#13 Issue credential offer to X")
+                log_status("#13 Issue credential offer")
 
                 # TODO define attributes to send for credential
                 agent.cred_attrs[credential_definition_id] = {
@@ -277,14 +278,14 @@ async def main(
                 if revocation:
                     req_attrs.append(
                         {
-                            "name": "degree",
+                            "name": "role",
                             "restrictions": [{"issuer_did": agent.did}],
                             "non_revoked": {"to": int(time.time() - 1)},
                         },
                     )
                 else:
                     req_attrs.append(
-                        {"name": "degree", "restrictions": [{"issuer_did": agent.did}]}
+                        {"name": "role", "restrictions": [{"issuer_did": agent.did}]}
                     )
                 if SELF_ATTESTED:
                     # test self-attested claims
