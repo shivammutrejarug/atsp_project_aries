@@ -229,6 +229,7 @@ async def main(start_port: int,
                 cred_details = await handle_credential_json(agent)
                 log_status(f"#13 Issue credential offer to {cred_details['name']}")
                 # TODO credential offers
+                # TODO Replace date with expiry and issue date
                 agent.cred_attrs[credential_definition_id] = {
                     "employee_id": ''.join(random.choices(string.ascii_uppercase + string.digits, k = 8)),
                     "name": cred_details['name'],
@@ -260,7 +261,11 @@ async def main(start_port: int,
                         "restrictions": [{"schema_name": "degree schema"}]
                     },
                     {
-                        "name": "date",
+                        "name": "issue_date",
+                        "restrictions": [{"schema_name": "degree schema"}]
+                    },
+                    {
+                        "name": "expiry_date",
                         "restrictions": [{"schema_name": "degree schema"}]
                     },
                     {

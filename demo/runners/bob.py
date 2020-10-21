@@ -122,10 +122,11 @@ class BobAgent(DemoAgent):
             credentials = await self.admin_GET(
                 f"/present-proof/records/{presentation_exchange_id}/credentials"
             )
+            print ("credentials to provide for the proof", credentials)
             if credentials:
                 for row in sorted(
                     credentials,
-                    key=lambda c: int(c["cred_info"]["attrs"]["timestamp"]),
+                    key=lambda c: int(c["cred_info"]["attrs"]["issue_timestamp"]),
                     reverse=True,
                 ):
                     for referent in row["presentation_referents"]:
@@ -317,7 +318,7 @@ if __name__ == "__main__":
             import pydevd_pycharm
 
             print(
-                f"Alice remote debugging to {PYDEVD_PYCHARM_HOST}:{PYDEVD_PYCHARM_CONTROLLER_PORT}"
+                f"Bob remote debugging to {PYDEVD_PYCHARM_HOST}:{PYDEVD_PYCHARM_CONTROLLER_PORT}"
             )
             pydevd_pycharm.settrace(
                 host=PYDEVD_PYCHARM_HOST,
