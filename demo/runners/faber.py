@@ -147,7 +147,6 @@ async def handle_credential_json(agent):
     async for details in prompt_loop("Requested Credential details: "):
         if details:
             try:
-                print("Yahan bc")
                 json.loads(details)
                 return json.loads(details)
             except json.JSONDecodeError as e:
@@ -263,21 +262,10 @@ async def main(
             elif option == "1":
                 log_status("Enter credential details")
                 cred_detail = await handle_credential_json(agent)
-                print("Yahan bhi", cred_detail)
+
                 log_status("#13 Issue credential offer to X")
                 cred_detail['timestamp'] = str(int(time.time()))
                 agent.cred_attrs[credential_definition_id] = cred_detail
-
-
-
-                # TODO define attributes to send for credential
-                # agent.cred_attrs[credential_definition_id] = {
-                #     "name": "Alice Smith",
-                #     "date": "2018-05-28",
-                #     "degree": "Maths",
-                #     "age": "24",
-                #     "timestamp": str(int(time.time())),
-                # }
 
                 cred_preview = {
                     "@type": CRED_PREVIEW_TYPE,

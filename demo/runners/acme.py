@@ -7,6 +7,7 @@ import sys
 import time
 from datetime import date
 from uuid import uuid4
+import string
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # noqa
 
@@ -139,6 +140,16 @@ class AcmeAgent(DemoAgent):
         self.log("Received message:", message["content"])
 
 
+async def handle_credential_json(agent):
+    async for details in prompt_loop("Requested Credential details: "):
+        if details:
+            try:
+                json.loads(details)
+                return json.loads(details)
+            except json.JSONDecodeError as e:
+                log_msg("Invalid credential request:", str(e))
+
+
 async def main(start_port: int,
     no_auto: bool = False,
     revocation: bool = False,
@@ -214,13 +225,15 @@ async def main(start_port: int,
                 break
 
             elif option == "1":
-                log_status("#13 Issue credential offer to X")
+                log_status("#13 Enter details to issue credential.")
+                cred_details = await handle_credential_json(agent)
+                log_status(f"#13 Issue credential offer to {cred_details['name']}")
                 # TODO credential offers
                 agent.cred_attrs[credential_definition_id] = {
-                    "employee_id": "ACME0009",
-                    "name": "Alice Smith",
+                    "employee_id": ''.join(random.choices(string.ascii_uppercase + string.digits, k = 8)),
+                    "name": cred_details['name'],
                     "date": date.isoformat(date.today()),
-                    "position": "CEO"
+                    "position": cred_details['position']
                 }
                 cred_preview = {
                     "@type": CRED_PREVIEW_TYPE,
