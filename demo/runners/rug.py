@@ -86,7 +86,7 @@ class RugAgent(DemoAgent):
         )
 
         if state == "request_received":
-            log_status("#17 Issue credential")
+            log_status("#17 Issue passport credential")
             # issue credentials based on the credential_definition_id
             cred_attrs = self.cred_attrs[message["credential_definition_id"]]
             cred_preview = {
@@ -131,12 +131,20 @@ class RugAgent(DemoAgent):
             proof = await self.admin_POST(
                 f"/present-proof/records/{presentation_exchange_id}/verify-presentation"
             )
-            log_status(proof)
             self.log("Proof =", proof["verified"])
 
     async def handle_basicmessages(self, message):
         self.log("Received message:", message["content"])
 
+async def handle_credential_json(agent):
+    async for details in prompt_loop("Requested Credential details: "):
+        if details:
+            try:
+                print("Yahan bc")
+                json.loads(details)
+                return json.loads(details)
+            except json.JSONDecodeError as e:
+                log_msg("Invalid credential request:", str(e))
 
 async def main(
     start_port: int,
@@ -173,7 +181,7 @@ async def main(
 
         # Create a schema
         with log_timer("Publish schema/cred def duration:"):
-            log_status("#3/4 Create a new schema/cred def on the ledger")
+            log_status("#3/4 Creating a new schema/cred def on the ledger")
             version = format(
                 "%d.%d.%d"
                 % (
@@ -198,7 +206,7 @@ async def main(
         with log_timer("Generate invitation duration:"):
             # Generate an invitation
             log_status(
-                "#7 Create a connection and print out the invite details"
+                "#7 Creating a connection and print out the invite details"
             )
             connection = await agent.admin_POST("/connections/create-invitation")
 
@@ -214,7 +222,7 @@ async def main(
 
         exchange_tracing = False
         options = (
-            "    (1) Issue Credential\n"
+            "    (1) Issue Passport Credential\n"
             "    (2) Send Proof Request\n"
             "    (3) Send Message\n"
         )
@@ -239,17 +247,23 @@ async def main(
                     )
                 )
             elif option == "1":
-                log_status("#13 Issue credential offer")
+                log_status("#13 Issue passport credential offer")
+                log_status("Enter credential details")
+                cred_detail = await handle_credential_json(agent)
+                print("Yahan bhi", cred_detail)
+                log_status("#13 Issue credential offer to X")
+                cred_detail['timestamp'] = str(int(time.time()))
+                agent.cred_attrs[credential_definition_id] = cred_detail
 
                 # TODO define attributes to send for credential
-                agent.cred_attrs[credential_definition_id] = {
-                    "name": "Joey Tribiani",
-                    "expiry_date": "2018-05-28",
-                    "role": "Researcher",
-                    "affiliation": "Lung Cancer",
-                    "age": "24",
-                    "timestamp": str(int(time.time())),
-                }
+                #agent.cred_attrs[credential_definition_id] = {
+                #    "name": "Joey Tribiani",
+                #    "expiry_date": "2018-05-28",
+                #    "role": "Researcher",
+                #    "affiliation": "Lung Cancer",
+                #    "age": "24",
+                #    "timestamp": str(int(time.time())),
+                #}
 
                 cred_preview = {
                     "@type": CRED_PREVIEW_TYPE,
@@ -270,7 +284,7 @@ async def main(
                 # TODO issue an additional credential for Student ID
 
             elif option == "2":
-                log_status("#20 Request proof of degree from alice")
+                log_status("#20 Request proof of degree ")
                 req_attrs = [
                     {"name": "name", "restrictions": [{"issuer_did": agent.did}]},
                     {"name": "expiry_date", "restrictions": [{"issuer_did": agent.did}]},

@@ -76,7 +76,7 @@ class JoeyAgent(DemoAgent):
         )
 
         if state == "offer_received":
-            log_status("#15 After receiving credential offer, send credential request")
+            log_status("#15 After receiving passport credential offer, send passport credential request")
             await self.admin_POST(
                 f"/issue-credential/records/{credential_exchange_id}/send-request"
             )
@@ -84,12 +84,13 @@ class JoeyAgent(DemoAgent):
         elif state == "credential_acked":
             cred_id = message["credential_id"]
             self.log(f"Stored credential {cred_id} in wallet")
-            log_status(f"#18.1 Stored credential {cred_id} in wallet")
+            log_status(f"#18.1 Stored passport credential {cred_id} in wallet")
             resp = await self.admin_GET(f"/credential/{cred_id}")
-            log_json(resp, label="Credential details:")
+            resp['ga4gh_visa_v1']=resp.pop('attrs')
+            log_json(resp, label="Passport Credential details:")
             log_json(
                 message["credential_request_metadata"],
-                label="Credential request metadata:",
+                label="Passport Credential request metadata:",
             )
             self.log("credential_id", message["credential_id"])
             self.log("credential_definition_id", message["credential_definition_id"])
