@@ -275,7 +275,7 @@ async def main(
                 cred_detail['issue_date'] = str(issue_date)
                 cred_detail['issue_timestamp'] = issue_date.strftime("%s")
                 
-                expiry_date = datetime.date(datetime.now()) + timedelta(days=30)
+                expiry_date = datetime.date(datetime.now()) + timedelta(days=31)
                 cred_detail['expiry_date'] = str(expiry_date)
                 cred_detail['expiry_timestamp'] = expiry_date.strftime("%s")
 

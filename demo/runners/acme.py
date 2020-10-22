@@ -5,7 +5,7 @@ import os
 import random
 import sys
 import time
-from datetime import date
+from datetime import date, datetime
 from uuid import uuid4
 import string
 
@@ -271,9 +271,32 @@ async def main(start_port: int,
                     {
                         "name": "degree",
                         "restrictions": [{"schema_name": "degree schema"}]
+                    },
+                    {
+                        "name": "affiliation",
+                        "value": "UA" or "UG",
+                        "restrictions": [{"schema_name": "degree schema"}]
+                    },
+                    {
+                        "name": "role",
+                        "value": "Researcher" or "researcher",
+                        "restrictions": [{"schema_name": "degree schema"}]
+                    },
+                    {
+                        "name": "role_type",
+                        "value": "Melanoma" or "melanoma",
+                        "restrictions": [{"schema_name": "degree schema"}]
                     }
                 ]
-                req_preds = []
+                req_preds = [
+                    # Check if the credential has expired or not.
+                    {
+                        "name": "expiry_timestamp",
+                        "p_type": ">",
+                        "p_value": int(datetime.timestamp(datetime.now())),
+                        "restrictions": [{"schema_name": "degree schema"}],
+                    }
+                ]
                 indy_proof_request = {
                     "name": "Proof of Education",
                     "version": "1.0",
@@ -282,7 +305,10 @@ async def main(start_port: int,
                         f"0_{req_attr['name']}_uuid": req_attr
                         for req_attr in req_attrs
                     },
-                    "requested_predicates": {}
+                    "requested_predicates": {
+                        f"0_{req_pred['name']}_GE_uuid": req_pred
+                        for req_pred in req_preds
+                    }
                 }
                 proof_request_web_request = {
                     "connection_id": agent.connection_id,
