@@ -140,7 +140,6 @@ async def handle_credential_json(agent):
     async for details in prompt_loop("Requested Credential details: "):
         if details:
             try:
-                print("Yahan bc")
                 json.loads(details)
                 return json.loads(details)
             except json.JSONDecodeError as e:

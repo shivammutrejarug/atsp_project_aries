@@ -80,7 +80,7 @@ do
     continue
   ;;
   --bg)
-    if [ "${AGENT}" = "alice" ] || [ "${AGENT}" = "faber" ] || [ "${AGENT}" = "rug" ] || [ "${AGENT}" = "acme" ] || [ "${AGENT}" = "joey" ]; then
+    if [ "${AGENT}" = "alice" ] || [ "${AGENT}" = "faber" ] || [ "${AGENT}" = "rug" ] || [ "${AGENT}" = "acme" ] || [ "${AGENT}" = "umcg" ] || [ "${AGENT}" = "joey" ]; then
       DOCKER_OPTS="-d"
       echo -e "\nRunning in ${AGENT} in the background. Note that you cannot use the command line console in this mode."
       echo To see the logs use: \"docker logs ${AGENT}\".
@@ -88,7 +88,7 @@ do
       echo To stop the agent, use: \"docker stop ${AGENT}\". The docker environment will
       echo -e "be removed on stop.\n\n"
     else
-      echo The "bg" option \(for running docker in detached mode\) is only for agents Alice, Joey, Faber, Rug and Acme.
+      echo The "bg" option \(for running docker in detached mode\) is only for agents Alice, Joey, Faber, Rug, Umcg and Acme.
       echo Ignoring...
     fi
     continue
@@ -99,7 +99,7 @@ do
 Usage:
    ./demo_run <agent> [OPTIONS]
 
-   - <agent> is one of alice, joey, faber, rug, acme, performance.
+   - <agent> is one of alice, joey, faber, rug, umcg, acme, performance.
    - Options:
       --events - display on the terminal the webhook events from the ACA-Py agent.
       --timing - at the end of the run, display timing; relevant to the "performance" agent.
@@ -137,12 +137,16 @@ elif [ "$AGENT" = "acme" ]; then
   AGENT_MODULE="acme"
   AGENT_PORT=8040
   AGENT_PORT_RANGE=8040-8047
+elif [ "$AGENT" = "umcg" ]; then
+  AGENT_MODULE="umcg"
+  AGENT_PORT=8090
+  AGENT_PORT_RANGE=8090-8097
 elif [ "$AGENT" = "performance" ]; then
   AGENT_MODULE="performance"
   AGENT_PORT=8030
   AGENT_PORT_RANGE=8030-8038
 else
-  echo "Please specify which agent you want to run. Choose from 'faber', 'rug', 'alice', 'joey', 'acme', or 'performance'."
+  echo "Please specify which agent you want to run. Choose from 'faber', 'rug', 'alice', 'joey', 'umcg', 'acme', or 'performance'."
   exit 1
 fi
 
