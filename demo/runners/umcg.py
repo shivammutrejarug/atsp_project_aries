@@ -8,6 +8,7 @@ import time
 import string
 from datetime import date
 from uuid import uuid4
+from datetime import date, datetime
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # noqa
 
@@ -281,17 +282,24 @@ async def main(start_port: int,
                     }
                 ]
                 req_preds = [
+                    # test zero-knowledge proofs
+                    #{
+                    #    "name": "age",
+                    #    "p_type": ">=",
+                    #    "p_value": 18,
+                    #    "restrictions": [{"issuer_did": agent.did}],
+                    #}
                 ]
                 indy_proof_request = {
                     "name": "Proof of Education",
                     "version": "1.0",
-                    "nonce": str(uuid4().int),
                     "requested_attributes": {
-                        f"0_{req_attr['name']}_uuid": req_attr
-                        for req_attr in req_attrs
+                        f"0_{req_attr['name']}_uuid": req_attr for req_attr in req_attrs
                     },
                     "requested_predicates": {
-                    }
+                        f"0_{req_pred['name']}_GE_uuid": req_pred
+                        for req_pred in req_preds
+                    },
                 }
                 proof_request_web_request = {
                     "connection_id": agent.connection_id,
