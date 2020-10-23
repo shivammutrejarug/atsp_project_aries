@@ -244,8 +244,9 @@ async def main(start_port: int, no_auto: bool = False, show_timing: bool = False
         async for option in prompt_loop(
             "   (3) Send Message\n"
             "   (4) Input New Invitation\n"
+            "   (5) See received credentials\n"
             "   (X) Exit?\n"
-            "[3/4/X]: "
+            "[3/4/5/X]: "
         ):
             if option is not None:
                 option = option.strip()
@@ -263,6 +264,13 @@ async def main(start_port: int, no_auto: bool = False, show_timing: bool = False
                 # handle new invitation
                 log_status("Input new invitation details")
                 await input_invitation(agent)
+
+            else:
+                log_status("You received the following credential(s)")
+                creds_list = await agent.admin_GET("/credentials")
+                creds_list['results'].sort(key=lambda x: int(x['attrs']['issue_timestamp']), reverse=True)
+                log_json(creds_list, label="Credential(s):")
+
 
         if show_timing:
             timing = await agent.fetch_timing()
