@@ -122,7 +122,6 @@ class BobAgent(DemoAgent):
             credentials = await self.admin_GET(
                 f"/present-proof/records/{presentation_exchange_id}/credentials"
             )
-            print ("credentials to provide for the proof", credentials)
             if credentials:
                 for row in sorted(
                     credentials,
@@ -158,6 +157,7 @@ class BobAgent(DemoAgent):
                 "requested_attributes": revealed,
                 "self_attested_attributes": self_attested,
             }
+            print (request)
 
             log_status("#26 Send the proof to X")
             await self.admin_POST(
@@ -268,8 +268,11 @@ async def main(start_port: int, no_auto: bool = False, show_timing: bool = False
             else:
                 log_status("You received the following credential(s)")
                 creds_list = await agent.admin_GET("/credentials")
-                creds_list['results'].sort(key=lambda x: int(x['attrs']['issue_timestamp']), reverse=True)
-                log_json(creds_list, label="Credential(s):")
+                if not creds_list['results']:
+                    log_status("You have't received any credentials yet.")
+                else:
+                    creds_list['results'].sort(key=lambda x: int(x['attrs']['issue_timestamp']), reverse=True)
+                    log_json(creds_list, label="Credential(s):")
 
 
         if show_timing:
