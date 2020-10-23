@@ -5,8 +5,9 @@ import os
 import random
 import sys
 import time
-from datetime import date
+from datetime import date, datetime, timedelta
 from uuid import uuid4
+import string
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # noqa
 
@@ -45,6 +46,7 @@ class AcmeAgent(DemoAgent):
         # TODO define a dict to hold credential attributes based on
         # the credential_definition_id
         self.cred_attrs = {}
+        self.cred_def_id = None
 
     async def detect_connection(self):
         await self._connection_ready
@@ -93,6 +95,7 @@ class AcmeAgent(DemoAgent):
 
     async def handle_present_proof(self, message):
         state = message["state"]
+        variables_dict = {}
 
         presentation_exchange_id = message["presentation_exchange_id"]
         self.log(
@@ -118,6 +121,7 @@ class AcmeAgent(DemoAgent):
             is_proof_of_education = (
                 pres_req["name"] == "Proof of Education"
             )
+
             if is_proof_of_education:
                 log_status("#28.1 Received proof of education, check claims")
                 for (referent, attr_spec) in pres_req["requested_attributes"].items():
@@ -130,6 +134,14 @@ class AcmeAgent(DemoAgent):
                     self.log(f"schema_id: {id_spec['schema_id']}")
                     self.log(f"cred_def_id {id_spec['cred_def_id']}")
                 # TODO placeholder for the next step
+                if proof['verified'] == "true":
+                    for (referent, attr_spec) in pres_req["requested_attributes"].items():
+                        variables_dict[attr_spec['name']] = pres['requested_proof']['revealed_attrs'][referent]['raw']
+
+                    await issue_access(
+                        self, variables_dict['name'], variables_dict['affiliation'], 
+                        variables_dict['role'], variables_dict['role_type']
+                )
             else:
                 # in case there are any other kinds of proofs received
                 self.log("#28.1 Received ", message["presentation_request"]["name"])
@@ -137,6 +149,53 @@ class AcmeAgent(DemoAgent):
 
     async def handle_basicmessages(self, message):
         self.log("Received message:", message["content"])
+
+
+async def issue_access(
+    agent, name, 
+    affiliation, role, role_type
+    ):
+    issue_date = datetime.date(datetime.now())
+    expiry_date = issue_date + timedelta(days=31)
+    # TODO credential offers
+    # TODO Replace date with expiry and issue date
+    agent.cred_attrs[agent.cred_def_id] = {
+        "researcher_id": ''.join(random.choices(string.ascii_uppercase + string.digits, k = 8)),
+        "name": name,
+        "issue_date": str(issue_date),
+        "issue_timestamp": issue_date.strftime("%s"),
+        "expiry_date": str(expiry_date),
+        "expiry_timestamp": expiry_date.strftime("%s"),
+        "affiliation": affiliation,
+        "role": role,
+        "role_type": role_type
+    }
+    cred_preview = {
+        "@type": CRED_PREVIEW_TYPE,
+        "attributes": [
+            {"name": n, "value": v}
+            for (n, v) in agent.cred_attrs[agent.cred_def_id].items()
+        ],
+    }
+    offer_request = {
+        "connection_id": agent.connection_id,
+        "cred_def_id": agent.cred_def_id,
+        "comment": f"Offer on cred def id {agent.cred_def_id}",
+        "credential_preview": cred_preview,
+    }
+    await agent.admin_POST(
+        "/issue-credential/send-offer",
+        offer_request
+    )
+
+async def handle_credential_json(agent):
+    async for details in prompt_loop("Requested Credential details: "):
+        if details:
+            try:
+                json.loads(details)
+                return json.loads(details)
+            except json.JSONDecodeError as e:
+                log_msg("Invalid credential request:", str(e))
 
 
 async def main(start_port: int,
@@ -184,9 +243,13 @@ async def main(start_port: int,
             ) = await agent.register_schema_and_creddef(
                 "employee id schema",
                 version,
-                ["employee_id", "name", "date", "position"],
+                [
+                    "researcher_id", "name", "issue_date", "issue_timestamp",
+                    "expiry_date", "expiry_timestamp", "affiliation", "role",
+                    "role_type"
+                ],
             )
-
+            agent.cred_def_id = credential_definition_id
         with log_timer("Generate invitation duration:"):
             # Generate an invitation
             log_status(
@@ -214,13 +277,23 @@ async def main(start_port: int,
                 break
 
             elif option == "1":
-                log_status("#13 Issue credential offer to X")
+                log_status("#13 Enter details to issue credential.")
+                cred_details = await handle_credential_json(agent)
+                log_status(f"#13 Issue credential offer to {cred_details['name']}")
+                issue_date = str(datetime.date(datetime.now()))
+                expiry_date = str(issue_date + timedelta(days=31))
                 # TODO credential offers
+                # TODO Replace date with expiry and issue date
                 agent.cred_attrs[credential_definition_id] = {
-                    "employee_id": "ACME0009",
-                    "name": "Alice Smith",
-                    "date": date.isoformat(date.today()),
-                    "position": "CEO"
+                    "researcher_id": ''.join(random.choices(string.ascii_uppercase + string.digits, k = 8)),
+                    "name": cred_details['name'],
+                    "issue_date": issue_date,
+                    "issue_timestamp": issue_date.strftime("%s"),
+                    "expiry_date": expiry_date,
+                    "expiry_timestamp": expiry_date.strftime("%s"),
+                    "affiliation": cred_details['affiliation'],
+                    "role": cred_details['role'],
+                    "role_type": cred_details['role_type']
                 }
                 cred_preview = {
                     "@type": CRED_PREVIEW_TYPE,
@@ -247,15 +320,42 @@ async def main(start_port: int,
                         "restrictions": [{"schema_name": "degree schema"}]
                     },
                     {
-                        "name": "date",
+                        "name": "issue_date",
+                        "restrictions": [{"schema_name": "degree schema"}]
+                    },
+                    {
+                        "name": "expiry_date",
                         "restrictions": [{"schema_name": "degree schema"}]
                     },
                     {
                         "name": "degree",
                         "restrictions": [{"schema_name": "degree schema"}]
+                    },
+                    {
+                        "name": "affiliation",
+                        "value": "UA" or "UG",
+                        "restrictions": [{"schema_name": "degree schema"}]
+                    },
+                    {
+                        "name": "role",
+                        "value": "Researcher" or "researcher",
+                        "restrictions": [{"schema_name": "degree schema"}]
+                    },
+                    {
+                        "name": "role_type",
+                        "value": "Melanoma" or "melanoma",
+                        "restrictions": [{"schema_name": "degree schema"}]
                     }
                 ]
-                req_preds = []
+                req_preds = [
+                    # Check if the credential has expired or not.
+                    {
+                        "name": "expiry_timestamp",
+                        "p_type": ">",
+                        "p_value": int(datetime.timestamp(datetime.now())),
+                        "restrictions": [{"schema_name": "degree schema"}],
+                    }
+                ]
                 indy_proof_request = {
                     "name": "Proof of Education",
                     "version": "1.0",
@@ -264,7 +364,10 @@ async def main(start_port: int,
                         f"0_{req_attr['name']}_uuid": req_attr
                         for req_attr in req_attrs
                     },
-                    "requested_predicates": {}
+                    "requested_predicates": {
+                        f"0_{req_pred['name']}_GE_uuid": req_pred
+                        for req_pred in req_preds
+                    }
                 }
                 proof_request_web_request = {
                     "connection_id": agent.connection_id,

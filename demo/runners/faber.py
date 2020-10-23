@@ -5,6 +5,10 @@ import os
 import random
 import sys
 import time
+from datetime import datetime, timedelta
+from urllib.parse import urlparse
+import base64
+import binascii
 
 from qrcode import QRCode
 
@@ -139,6 +143,17 @@ class FaberAgent(DemoAgent):
         self.log("Received message:", message["content"])
 
 
+
+async def handle_credential_json(agent):
+    async for details in prompt_loop("Requested Credential details: "):
+        if details:
+            try:
+                json.loads(details)
+                return json.loads(details)
+            except json.JSONDecodeError as e:
+                log_msg("Invalid credential request:", str(e))
+
+
 async def main(
     start_port: int,
     no_auto: bool = False,
@@ -189,7 +204,8 @@ async def main(
             ) = await agent.register_schema_and_creddef(
                 "degree schema",
                 version,
-                ["name", "date", "degree", "age", "timestamp"],
+                ['expiry_date', 'role', 'affiliation', 'role_type', 'issue_timestamp', 
+                    'expiry_timestamp', 'age', 'issue_date', 'name', 'degree'],
                 support_revocation=revocation,
                 revocation_registry_size=TAILS_FILE_COUNT if revocation else None,
             )
@@ -246,17 +262,25 @@ async def main(
                     )
                 )
             elif option == "1":
+                log_status("Enter credential details")
+                cred_detail = await handle_credential_json(agent)
+                try:
+                    "name" and "age" and "degree" and "role" and "role_type" and "affiliation" in cred_detail.keys()
+                except:
+                    log_msg("The credential details input should have name, age and degree")
+                    raise ("The credential details input should have name, age and degree")
+                
                 log_status("#13 Issue credential offer to X")
+                issue_date = datetime.date(datetime.now())
+                cred_detail['issue_date'] = str(issue_date)
+                cred_detail['issue_timestamp'] = issue_date.strftime("%s")
+                
+                expiry_date = datetime.date(datetime.now()) + timedelta(days=31)
+                cred_detail['expiry_date'] = str(expiry_date)
+                cred_detail['expiry_timestamp'] = expiry_date.strftime("%s")
 
-                # TODO define attributes to send for credential
-                agent.cred_attrs[credential_definition_id] = {
-                    "name": "Alice Smith",
-                    "date": "2018-05-28",
-                    "degree": "Maths",
-                    "age": "24",
-                    "timestamp": str(int(time.time())),
-                }
-
+                agent.cred_attrs[credential_definition_id] = cred_detail
+                
                 cred_preview = {
                     "@type": CRED_PREVIEW_TYPE,
                     "attributes": [
@@ -279,7 +303,8 @@ async def main(
                 log_status("#20 Request proof of degree from alice")
                 req_attrs = [
                     {"name": "name", "restrictions": [{"issuer_did": agent.did}]},
-                    {"name": "date", "restrictions": [{"issuer_did": agent.did}]},
+                    {"name": "expiry_date", "restrictions": [{"issuer_did": agent.did}]},
+                    {"name": "issue_date", "restrictions": [{"issuer_did": agent.did}]},
                 ]
                 if revocation:
                     req_attrs.append(
