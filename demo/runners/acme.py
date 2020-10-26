@@ -8,6 +8,8 @@ import time
 from datetime import date, datetime, timedelta
 from uuid import uuid4
 import string
+# from pymongo import MongoClient
+from motor import motor_asyncio
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # noqa
 
@@ -47,9 +49,17 @@ class AcmeAgent(DemoAgent):
         # the credential_definition_id
         self.cred_attrs = {}
         self.cred_def_id = None
+        self.disease_specification = "melanoma"
 
     async def detect_connection(self):
         await self._connection_ready
+
+    async def connect_mongo(self):
+        conn = motor_asyncio.AsyncIOMotorClient()
+        # conn = MongoClient()
+        db = conn['kafka']
+        self.coll = db['agg_test']
+        return self.coll
 
     @property
     def connection_ready(self):
@@ -138,6 +148,10 @@ class AcmeAgent(DemoAgent):
                     for (referent, attr_spec) in pres_req["requested_attributes"].items():
                         variables_dict[attr_spec['name']] = pres['requested_proof']['revealed_attrs'][referent]['raw']
 
+                    if variables_dict['role_type'] != self.disease_specification:
+                        self.log(f"This institute is only open for {self.disease_specification} specific research data")
+                        self.log("This is the collection ", self.coll)
+                        return    
                     await issue_access(
                         self, variables_dict['name'], variables_dict['affiliation'], 
                         variables_dict['role'], variables_dict['role_type']
@@ -218,6 +232,7 @@ async def main(start_port: int,
         )
         await agent.listen_webhooks(start_port + 2)
         await agent.register_did()
+        await agent.connect_mongo()
 
         with log_timer("Startup duration:"):
             await agent.start_process()
