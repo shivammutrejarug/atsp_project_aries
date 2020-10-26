@@ -8,8 +8,8 @@ import time
 from datetime import date, datetime, timedelta
 from uuid import uuid4
 import string
-# from pymongo import MongoClient
 from motor import motor_asyncio
+import coloredlogs
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # noqa
 
@@ -27,7 +27,10 @@ from runners.support.utils import (
 CRED_PREVIEW_TYPE = "https://didcomm.org/issue-credential/1.0/credential-preview"
 SELF_ATTESTED = os.getenv("SELF_ATTESTED")
 
-LOGGER = logging.getLogger(__name__)
+# Create a logger object.
+logger = logging.getLogger(__name__)
+
+coloredlogs.install(level='DEBUG', logger=logger)
 
 TAILS_FILE_COUNT = int(os.getenv("TAILS_FILE_COUNT", 100))
 
@@ -55,11 +58,19 @@ class AcmeAgent(DemoAgent):
         await self._connection_ready
 
     async def connect_mongo(self):
-        conn = motor_asyncio.AsyncIOMotorClient()
-        # conn = MongoClient()
-        db = conn['kafka']
-        self.coll = db['agg_test']
+        self.conn = motor_asyncio.AsyncIOMotorClient("192.168.1.4:27017")
+        self.db = self.conn['kafka']
+        self.coll = self.db['agg_test']
         return self.coll
+
+    async def get_data_list(self):
+        data_list = []
+        # test = await self.coll.find_one({}, {"_id": False})
+        async for document in self.coll.find({}, {"_id": False}):
+            data_list.append(document)
+        n = await self.coll.count_documents({})
+        logger.info(n)
+        return data_list
 
     @property
     def connection_ready(self):
@@ -149,13 +160,17 @@ class AcmeAgent(DemoAgent):
                         variables_dict[attr_spec['name']] = pres['requested_proof']['revealed_attrs'][referent]['raw']
 
                     if variables_dict['role_type'] != self.disease_specification:
-                        self.log(f"This institute is only open for {self.disease_specification} specific research data")
+                        logger.info(f"This institute is only open for {self.disease_specification} specific research data")
                         self.log("This is the collection ", self.coll)
-                        return    
+                        return
+
+                    research_data = await self.get_data_list()
+                    logger.info(research_data)
+
                     await issue_access(
                         self, variables_dict['name'], variables_dict['affiliation'], 
                         variables_dict['role'], variables_dict['role_type']
-                )
+                    )
             else:
                 # in case there are any other kinds of proofs received
                 self.log("#28.1 Received ", message["presentation_request"]["name"])
@@ -163,6 +178,9 @@ class AcmeAgent(DemoAgent):
 
     async def handle_basicmessages(self, message):
         self.log("Received message:", message["content"])
+
+    async def close_connection(self):
+        self.conn.close()
 
 
 async def issue_access(
@@ -201,6 +219,7 @@ async def issue_access(
         "/issue-credential/send-offer",
         offer_request
     )
+    return
 
 async def handle_credential_json(agent):
     async for details in prompt_loop("Requested Credential details: "):
@@ -289,6 +308,7 @@ async def main(start_port: int,
         ):
             option = option.strip()
             if option in "xX":
+                await agent.close_connection()
                 break
 
             elif option == "1":
@@ -412,7 +432,7 @@ async def main(start_port: int,
             if agent:
                 await agent.terminate()
         except Exception:
-            LOGGER.exception("Error terminating agent:")
+            logger.exception("Error terminating agent:")
             terminated = False
 
     await asyncio.sleep(0.1)
