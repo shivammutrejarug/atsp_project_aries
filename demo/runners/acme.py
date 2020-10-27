@@ -58,7 +58,7 @@ class AcmeAgent(DemoAgent):
         await self._connection_ready
 
     async def connect_mongo(self):
-        self.conn = motor_asyncio.AsyncIOMotorClient("192.168.1.4:27017")
+        self.conn = motor_asyncio.AsyncIOMotorClient("mongodb1:27017")
         self.db = self.conn['kafka']
         self.coll = self.db['agg_test']
         return self.coll

@@ -16,7 +16,7 @@ else
   TRACE_TARGET=log
 fi
 if [ -z "$DOCKER_NET" ]; then
-  DOCKER_NET="bridge"
+  DOCKER_NET="test_bridge"
 fi
 
 for i in "$@"
@@ -155,15 +155,23 @@ elif [ "$AGENT" = "performance" ]; then
   AGENT_MODULE="performance"
   AGENT_PORT=8030
   AGENT_PORT_RANGE=8030-8038
+elif [ "$AGENT" = "mongo" ]; then
+  AGENT_MODULE="mongo"
+  AGENT_PORT=27017
+  AGENT_PORT_RANGE=27017-27019
 else
 
-  echo "Please specify which agent you want to run. Choose from 'faber', 'rug','ua' , 'alice', 'bob', 'joey', 'umcg', 'acme', or 'performance'."
+  echo "Please specify which agent you want to run. Choose from 'faber', 'rug', 'ua', 'alice', 'bob', 'joey', 'umcg', 'acme', 'mongo', or 'performance'."
   
   exit 1
 fi
 
 echo "Preparing agent image..."
-docker build -q -t faber-alice-demo -f ../docker/Dockerfile.demo .. || exit 1
+if [ "$AGENT" = "mongo" ]; then
+  docker build -q -t faber-alice-demo -f ../docker/Dockerfile.mongo .. || exit 1
+else
+  docker build -q -t faber-alice-demo -f ../docker/Dockerfile.demo .. || exit 1
+fi
 
 if [ ! -z "$DOCKERHOST" ]; then
   # provided via APPLICATION_URL environment variable
@@ -255,9 +263,16 @@ if [ "$OSTYPE" = "msys" ]; then
 fi
 DOCKER=${DOCKER:-docker}
 
-$DOCKER run --name $AGENT --rm -it ${DOCKER_OPTS} \
+if [ "$AGENT" = "mongo" ]; then
+  $DOCKER run -d -p $AGENT_PORT_RANGE:$AGENT_PORT_RANGE \
+  --network=${DOCKER_NET} \
+  $DOCKER_ENV \
+  --name "mongodb1" "bitnami/mongodb:latest"
+else
+  $DOCKER run --name $AGENT --rm -it ${DOCKER_OPTS} \
   --network=${DOCKER_NET} \
   -p 0.0.0.0:$AGENT_PORT_RANGE:$AGENT_PORT_RANGE \
   -v "$(pwd)/../logs:/home/indy/logs" \
   $DOCKER_ENV \
   faber-alice-demo $AGENT_MODULE --port $AGENT_PORT $ARGS
+fi

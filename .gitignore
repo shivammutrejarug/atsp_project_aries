@@ -185,4 +185,5 @@ $RECYCLE.BIN/
 
 # Docs build
 _build/
+logs/
 **/*.iml
