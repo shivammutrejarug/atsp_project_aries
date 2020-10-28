@@ -165,7 +165,7 @@ class UMCGAgent(DemoAgent):
                         return
 
                     research_data = await self.get_data_list()
-                    logger.info("This is the data for {self.disease_specification}", research_data)
+                    self.log(f"This is the data for {self.disease_specification}", research_data)
 
                     await issue_access(
                         self, variables_dict['name'], variables_dict['affiliation'], 

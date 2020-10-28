@@ -5,12 +5,6 @@ import os
 import random
 import sys
 import time
-from datetime import datetime, timedelta
-from urllib.parse import urlparse
-import base64
-import binascii
-
-from qrcode import QRCode
 
 from aiohttp import ClientError
 
@@ -34,7 +28,7 @@ LOGGER = logging.getLogger(__name__)
 TAILS_FILE_COUNT = int(os.getenv("TAILS_FILE_COUNT", 100))
 
 
-class RuGAgent(DemoAgent):
+class RugAgent(DemoAgent):
     def __init__(
         self,
         http_port: int,
@@ -44,10 +38,10 @@ class RuGAgent(DemoAgent):
         **kwargs,
     ):
         super().__init__(
-            "RuG.Agent",
+            "Rug.Agent",
             http_port,
             admin_port,
-            prefix="RuG",
+            prefix="Rug",
             tails_server_base_url=tails_server_base_url,
             extra_args=[]
             if no_auto
@@ -92,7 +86,7 @@ class RuGAgent(DemoAgent):
         )
 
         if state == "request_received":
-            log_status("#17 Issue credential to X")
+            log_status("#17 Issue passport credential")
             # issue credentials based on the credential_definition_id
             cred_attrs = self.cred_attrs[message["credential_definition_id"]]
             cred_preview = {
@@ -142,8 +136,6 @@ class RuGAgent(DemoAgent):
     async def handle_basicmessages(self, message):
         self.log("Received message:", message["content"])
 
-
-
 async def handle_credential_json(agent):
     async for details in prompt_loop("Requested Credential details: "):
         if details:
@@ -152,7 +144,6 @@ async def handle_credential_json(agent):
                 return json.loads(details)
             except json.JSONDecodeError as e:
                 log_msg("Invalid credential request:", str(e))
-
 
 async def main(
     start_port: int,
@@ -171,7 +162,7 @@ async def main(
 
     try:
         log_status("#1 Provision an agent and wallet, get back configuration details")
-        agent = RuGAgent(
+        agent = RugAgent(
             start_port,
             start_port + 1,
             genesis_data=genesis,
@@ -189,7 +180,7 @@ async def main(
 
         # Create a schema
         with log_timer("Publish schema/cred def duration:"):
-            log_status("#3/4 Create a new schema/cred def on the ledger")
+            log_status("#3/4 Creating a new schema/cred def on the ledger")
             version = format(
                 "%d.%d.%d"
                 % (
@@ -204,8 +195,7 @@ async def main(
             ) = await agent.register_schema_and_creddef(
                 "degree schema",
                 version,
-                ['expiry_date', 'role', 'affiliation', 'role_type', 'issue_timestamp', 
-                    'expiry_timestamp', 'age', 'issue_date', 'name', 'degree'],
+                ["name", "role", "affiliation", "expiry_date", "age", "timestamp"],
                 support_revocation=revocation,
                 revocation_registry_size=TAILS_FILE_COUNT if revocation else None,
             )
@@ -215,29 +205,23 @@ async def main(
         with log_timer("Generate invitation duration:"):
             # Generate an invitation
             log_status(
-                "#7 Create a connection to alice and print out the invite details"
+                "#7 Creating a connection and print out the invite details"
             )
             connection = await agent.admin_POST("/connections/create-invitation")
 
         agent.connection_id = connection["connection_id"]
 
-        qr = QRCode()
-        qr.add_data(connection["invitation_url"])
-        log_msg(
-            "Use the following JSON to accept the invite from another demo agent."
-            " Or use the QR code to connect from a mobile agent."
-        )
         log_msg(
             json.dumps(connection["invitation"]), label="Invitation Data:", color=None
         )
-        qr.print_ascii(invert=True)
+
 
         log_msg("Waiting for connection...")
         await agent.detect_connection()
 
         exchange_tracing = False
         options = (
-            "    (1) Issue Credential\n"
+            "    (1) Issue Passport Credential\n"
             "    (2) Send Proof Request\n"
             "    (3) Send Message\n"
         )
@@ -262,25 +246,24 @@ async def main(
                     )
                 )
             elif option == "1":
+                log_status("#13 Issue passport credential offer")
                 log_status("Enter credential details")
                 cred_detail = await handle_credential_json(agent)
-                try:
-                    "name" and "age" and "degree" and "role" and "role_type" and "affiliation" in cred_detail.keys()
-                except:
-                    log_msg("The credential details input should have name, age and degree")
-                    raise ("The credential details input should have name, age and degree")
-                
+                print("Yahan bhi", cred_detail)
                 log_status("#13 Issue credential offer to X")
-                issue_date = datetime.date(datetime.now())
-                cred_detail['issue_date'] = str(issue_date)
-                cred_detail['issue_timestamp'] = issue_date.strftime("%s")
-                
-                expiry_date = datetime.date(datetime.now()) + timedelta(days=31)
-                cred_detail['expiry_date'] = str(expiry_date)
-                cred_detail['expiry_timestamp'] = expiry_date.strftime("%s")
-
+                cred_detail['timestamp'] = str(int(time.time()))
                 agent.cred_attrs[credential_definition_id] = cred_detail
-                
+
+                # TODO define attributes to send for credential
+                #agent.cred_attrs[credential_definition_id] = {
+                #    "name": "Joey Tribiani",
+                #    "expiry_date": "2018-05-28",
+                #    "role": "Researcher",
+                #    "affiliation": "Lung Cancer",
+                #    "age": "24",
+                #    "timestamp": str(int(time.time())),
+                #}
+
                 cred_preview = {
                     "@type": CRED_PREVIEW_TYPE,
                     "attributes": [
@@ -300,23 +283,22 @@ async def main(
                 # TODO issue an additional credential for Student ID
 
             elif option == "2":
-                log_status("#20 Request proof of degree from alice")
+                log_status("#20 Request proof of degree ")
                 req_attrs = [
                     {"name": "name", "restrictions": [{"issuer_did": agent.did}]},
                     {"name": "expiry_date", "restrictions": [{"issuer_did": agent.did}]},
-                    {"name": "issue_date", "restrictions": [{"issuer_did": agent.did}]},
                 ]
                 if revocation:
                     req_attrs.append(
                         {
-                            "name": "degree",
+                            "name": "role",
                             "restrictions": [{"issuer_did": agent.did}],
                             "non_revoked": {"to": int(time.time() - 1)},
                         },
                     )
                 else:
                     req_attrs.append(
-                        {"name": "degree", "restrictions": [{"issuer_did": agent.did}]}
+                        {"name": "role", "restrictions": [{"issuer_did": agent.did}]}
                     )
                 if SELF_ATTESTED:
                     # test self-attested claims
@@ -414,7 +396,7 @@ async def main(
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description="Runs a RuG demo agent.")
+    parser = argparse.ArgumentParser(description="Runs a Rug demo agent.")
     parser.add_argument("--no-auto", action="store_true", help="Disable auto issuance")
     parser.add_argument(
         "-p",
@@ -455,7 +437,7 @@ if __name__ == "__main__":
             import pydevd_pycharm
 
             print(
-                "RuG remote debugging to "
+                "Rug remote debugging to "
                 f"{PYDEVD_PYCHARM_HOST}:{PYDEVD_PYCHARM_CONTROLLER_PORT}"
             )
             pydevd_pycharm.settrace(
