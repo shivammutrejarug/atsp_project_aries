@@ -34,7 +34,7 @@ LOGGER = logging.getLogger(__name__)
 TAILS_FILE_COUNT = int(os.getenv("TAILS_FILE_COUNT", 100))
 
 
-class FaberAgent(DemoAgent):
+class UoAAgent(DemoAgent):
     def __init__(
         self,
         http_port: int,
@@ -44,10 +44,10 @@ class FaberAgent(DemoAgent):
         **kwargs,
     ):
         super().__init__(
-            "Faber.Agent",
+            "UoA.Agent",
             http_port,
             admin_port,
-            prefix="Faber",
+            prefix="UoA",
             tails_server_base_url=tails_server_base_url,
             extra_args=[]
             if no_auto
@@ -171,7 +171,7 @@ async def main(
 
     try:
         log_status("#1 Provision an agent and wallet, get back configuration details")
-        agent = FaberAgent(
+        agent = UoAAgent(
             start_port,
             start_port + 1,
             genesis_data=genesis,
@@ -414,7 +414,7 @@ async def main(
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description="Runs a Faber demo agent.")
+    parser = argparse.ArgumentParser(description="Runs a UoA demo agent.")
     parser.add_argument("--no-auto", action="store_true", help="Disable auto issuance")
     parser.add_argument(
         "-p",
@@ -455,7 +455,7 @@ if __name__ == "__main__":
             import pydevd_pycharm
 
             print(
-                "Faber remote debugging to "
+                "UoA remote debugging to "
                 f"{PYDEVD_PYCHARM_HOST}:{PYDEVD_PYCHARM_CONTROLLER_PORT}"
             )
             pydevd_pycharm.settrace(
