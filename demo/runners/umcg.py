@@ -130,7 +130,7 @@ class UMCGAgent(DemoAgent):
 
         if state == "presentation_received":
             # TODO handle received presentations
-            log_status("#27 Process the proof provided by X")
+            log_status("#27 Process the proof provided")
             log_status("#28 Check if proof is valid")
             proof = await self.admin_POST(
                 f"/present-proof/records/{presentation_exchange_id}/verify-presentation"
@@ -311,7 +311,7 @@ async def main(start_port: int,
         exchange_tracing = False
 
         async for option in prompt_loop(
-            "(1) Issue Credential, (2) Send Proof Request, "
+            "(1) Issue Visa Credential, (2) Send Proof Request, "
             + "(3) Send Message (X) Exit? [1/2/3/X] "
         ):
             option = option.strip()

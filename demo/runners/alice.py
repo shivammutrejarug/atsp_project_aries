@@ -86,10 +86,10 @@ class AliceAgent(DemoAgent):
             self.log(f"Stored credential {cred_id} in wallet")
             log_status(f"#18.1 Stored credential {cred_id} in wallet")
             resp = await self.admin_GET(f"/credential/{cred_id}")
-            log_json(resp, label="Credential details:")
+            log_json(resp, label="Passport Credential details:")
             log_json(
                 message["credential_request_metadata"],
-                label="Credential request metadata:",
+                label="Passport Credential request metadata:",
             )
             self.log("credential_id", message["credential_id"])
             self.log("credential_definition_id", message["credential_definition_id"])
@@ -159,7 +159,7 @@ class AliceAgent(DemoAgent):
             }
             print (request)
 
-            log_status("#26 Send the proof to X")
+            log_status("#26 Send the proof")
             await self.admin_POST(
                 (
                     "/present-proof/records/"
@@ -244,7 +244,7 @@ async def main(start_port: int, no_auto: bool = False, show_timing: bool = False
         async for option in prompt_loop(
             "   (3) Send Message\n"
             "   (4) Input New Invitation\n"
-            "   (5) See received credentials\n"
+            "   (5) See received credentials/ Wallet details\n"
             "   (X) Exit?\n"
             "[3/4/5/X]: "
         ):

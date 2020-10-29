@@ -10,7 +10,7 @@ from urllib.parse import urlparse
 import base64
 import binascii
 
-from qrcode import QRCode
+
 
 from aiohttp import ClientError
 
@@ -92,7 +92,7 @@ class UoAAgent(DemoAgent):
         )
 
         if state == "request_received":
-            log_status("#17 Issue credential to X")
+            log_status("#17 Issue credential")
             # issue credentials based on the credential_definition_id
             cred_attrs = self.cred_attrs[message["credential_definition_id"]]
             cred_preview = {
@@ -221,23 +221,17 @@ async def main(
 
         agent.connection_id = connection["connection_id"]
 
-        qr = QRCode()
-        qr.add_data(connection["invitation_url"])
-        log_msg(
-            "Use the following JSON to accept the invite from another demo agent."
-            " Or use the QR code to connect from a mobile agent."
-        )
+        
         log_msg(
             json.dumps(connection["invitation"]), label="Invitation Data:", color=None
         )
-        qr.print_ascii(invert=True)
 
         log_msg("Waiting for connection...")
         await agent.detect_connection()
 
         exchange_tracing = False
         options = (
-            "    (1) Issue Credential\n"
+            "    (1) Issue Passport Credential\n"
             "    (2) Send Proof Request\n"
             "    (3) Send Message\n"
         )
@@ -252,7 +246,7 @@ async def main(
                 break
 
             elif option == "1":
-                log_status("Enter credential details")
+                log_status("Enter passport credential details")
                 cred_detail = await handle_credential_json(agent)
                 try:
                     "name" and "age" and "degree" and "role" and "role_type" and "affiliation" in cred_detail.keys()
@@ -260,7 +254,7 @@ async def main(
                     log_msg("The credential details input should have name, age and degree")
                     raise ("The credential details input should have name, age and degree")
                 
-                log_status("#13 Issue credential offer to X")
+                log_status("#13 Issue credential offer")
                 issue_date = datetime.date(datetime.now())
                 cred_detail['issue_date'] = str(issue_date)
                 cred_detail['issue_timestamp'] = issue_date.strftime("%s")
