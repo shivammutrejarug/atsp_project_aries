@@ -81,7 +81,7 @@ do
   ;;
   --bg)
 
-    if [ "${AGENT}" = "alice" ] || [ "${AGENT}" = "bob" ] || [ "${AGENT}" = "UoA" ] || [ "${AGENT}" = "RuG" ] || [ "${AGENT}" = "ua" ] || [ "${AGENT}" = "UMCG" ] || [ "${AGENT}" = "umcg" ] || [ "${AGENT}" = "joey" ]; then
+    if [ "${AGENT}" = "alice" ] || [ "${AGENT}" = "bob" ] || [ "${AGENT}" = "UoA" ] || [ "${AGENT}" = "rug" ] || [ "${AGENT}" = "ua" ] || [ "${AGENT}" = "UMCG" ] || [ "${AGENT}" = "joey" ]; then
       DOCKER_OPTS="-d"
       echo -e "\nRunning in ${AGENT} in the background. Note that you cannot use the command line console in this mode."
       echo To see the logs use: \"docker logs ${AGENT}\".
@@ -89,7 +89,7 @@ do
       echo To stop the agent, use: \"docker stop ${AGENT}\". The docker environment will
       echo -e "be removed on stop.\n\n"
     else
-      echo The "bg" option \(for running docker in detached mode\) is only for agents Alice, Bob Joey, UoA, RuG, Ua, Umcg and UMCG.
+      echo The "bg" option \(for running docker in detached mode\) is only for agents Alice, Bob Joey, UoA, rug, Ua, Umcg and UMCG.
       echo Ignoring...
     fi
     continue
@@ -101,7 +101,7 @@ Usage:
    ./demo_run <agent> [OPTIONS]
 
 
-   - <agent> is one of alice, bob, joey, UoA, RuG, ua, umcg, UMCG, performance.
+   - <agent> is one of alice, bob, joey, UoA, rug, ua, umcg, UMCG, performance.
    - Options:
       --events - display on the terminal the webhook events from the ACA-Py agent.
       --timing - at the end of the run, display timing; relevant to the "performance" agent.
@@ -128,8 +128,8 @@ elif [ "$AGENT" = "alice" ]; then
   AGENT_PORT=8030
   AGENT_PORT_RANGE=8030-8037
 
-elif [ "$AGENT" = "RuG" ]; then
-  AGENT_MODULE="RuG"
+elif [ "$AGENT" = "rug" ]; then
+  AGENT_MODULE="rug"
   AGENT_PORT=8070
   AGENT_PORT_RANGE=8070-8077
 elif [ "$AGENT" = "ua" ]; then
@@ -143,14 +143,10 @@ elif [ "$AGENT" = "bob" ]; then
   AGENT_MODULE="bob"
   AGENT_PORT=8050
   AGENT_PORT_RANGE=8050-8057
-elif [ "$AGENT" = "UMCG" ]; then
-  AGENT_MODULE="UMCG"
-  AGENT_PORT=8040
-  AGENT_PORT_RANGE=8040-8047
 elif [ "$AGENT" = "umcg" ]; then
   AGENT_MODULE="umcg"
-  AGENT_PORT=8090
-  AGENT_PORT_RANGE=8090-8097
+  AGENT_PORT=8040
+  AGENT_PORT_RANGE=8040-8047
 elif [ "$AGENT" = "performance" ]; then
   AGENT_MODULE="performance"
   AGENT_PORT=8030
@@ -161,7 +157,7 @@ elif [ "$AGENT" = "mongo" ]; then
   AGENT_PORT_RANGE=27017-27019
 else
 
-  echo "Please specify which agent you want to run. Choose from 'UoA', 'RuG', 'ua', 'alice', 'bob', 'joey', 'umcg', 'UMCG', 'mongo', or 'performance'."
+  echo "Please specify which agent you want to run. Choose from 'UoA', 'rug', 'ua', 'alice', 'bob', 'joey', 'umcg', 'UMCG', 'mongo', or 'performance'."
   
   exit 1
 fi
