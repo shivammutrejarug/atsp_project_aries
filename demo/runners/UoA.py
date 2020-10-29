@@ -243,10 +243,7 @@ async def main(
         )
         if revocation:
             options += "    (4) Revoke Credential\n" "    (5) Publish Revocations\n"
-        options += "    (T) Toggle tracing on credential/proof exchange\n"
-        options += "    (X) Exit?\n[1/2/3/{}T/X] ".format(
-            "4/5/6/" if revocation else ""
-        )
+        options += "    (X) Exit?\n[1/2/3/X] "
         async for option in prompt_loop(options):
             if option is not None:
                 option = option.strip()
@@ -254,13 +251,6 @@ async def main(
             if option is None or option in "xX":
                 break
 
-            elif option in "tT":
-                exchange_tracing = not exchange_tracing
-                log_msg(
-                    ">>> Credential/Proof Exchange Tracing is {}".format(
-                        "ON" if exchange_tracing else "OFF"
-                    )
-                )
             elif option == "1":
                 log_status("Enter credential details")
                 cred_detail = await handle_credential_json(agent)
