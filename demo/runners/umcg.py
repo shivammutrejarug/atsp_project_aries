@@ -169,14 +169,14 @@ class UMCGAgent(DemoAgent):
                         self.log("This is the collection ", self.coll)
                         return
 
-                    research_data = await self.get_data_list()
-                    self.log(f"This is the data for {self.disease_specification}", research_data)
-
                     # If every check passes we issue a credential to the researcher.
                     await issue_access(
                         self, variables_dict['name'], variables_dict['affiliation'], 
                         variables_dict['role'], variables_dict['role_type']
                     )
+
+                    research_data = await self.get_data_list()
+                    self.log(f"This is the data for {self.disease_specification}", research_data)
             else:
                 # in case there are any other kinds of proofs received
                 self.log("#28.1 Received ", message["presentation_request"]["name"])
