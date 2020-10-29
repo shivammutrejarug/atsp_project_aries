@@ -57,12 +57,14 @@ class UMCGAgent(DemoAgent):
     async def detect_connection(self):
         await self._connection_ready
 
+    #Make an asynchronous connection to the database.
     async def connect_mongo(self):
         self.conn = motor_asyncio.AsyncIOMotorClient("mongodb1:27017")
         self.db = self.conn['kafka']
         self.coll = self.db['agg_test']
         return self.coll
 
+    #Retrieve data from the database.
     async def get_data_list(self):
         data_list = []
         # test = await self.coll.find_one({}, {"_id": False})
@@ -154,7 +156,10 @@ class UMCGAgent(DemoAgent):
                     # just print out the schema/cred def id's of presented claims
                     self.log(f"schema_id: {id_spec['schema_id']}")
                     self.log(f"cred_def_id {id_spec['cred_def_id']}")
-                # TODO placeholder for the next step
+
+                
+                # If the prover has presented all proofs, we check if his research belongs \
+                # to the disease specific data that this insitution holds, that is, melanoma cancer.
                 if proof['verified'] == "true":
                     for (referent, attr_spec) in pres_req["requested_attributes"].items():
                         variables_dict[attr_spec['name']] = pres['requested_proof']['revealed_attrs'][referent]['raw']
@@ -167,6 +172,7 @@ class UMCGAgent(DemoAgent):
                     research_data = await self.get_data_list()
                     self.log(f"This is the data for {self.disease_specification}", research_data)
 
+                    # If every check passes we issue a credential to the researcher.
                     await issue_access(
                         self, variables_dict['name'], variables_dict['affiliation'], 
                         variables_dict['role'], variables_dict['role_type']
@@ -183,6 +189,7 @@ class UMCGAgent(DemoAgent):
         self.conn.close()
 
 
+#This function issues a credential to the researcher. 
 async def issue_access(
     agent, name, 
     affiliation, role, role_type
@@ -221,6 +228,7 @@ async def issue_access(
     )
     return
 
+#This function accepts JSON data from the terminal.
 async def handle_credential_json(agent):
     async for details in prompt_loop("Requested Credential details: "):
         if details:
@@ -308,6 +316,7 @@ async def main(start_port: int,
         ):
             option = option.strip()
             if option in "xX":
+                #Close the connection on exit.
                 await agent.close_connection()
                 break
 
