@@ -86,10 +86,10 @@ class AliceAgent(DemoAgent):
             self.log(f"Stored credential {cred_id} in wallet")
             log_status(f"#18.1 Stored credential {cred_id} in wallet")
             resp = await self.admin_GET(f"/credential/{cred_id}")
-            log_json(resp, label="Credential details:")
+            log_json(resp, label="Passport Credential details:")
             log_json(
                 message["credential_request_metadata"],
-                label="Credential request metadata:",
+                label="Passport Credential request metadata:",
             )
             self.log("credential_id", message["credential_id"])
             self.log("credential_definition_id", message["credential_definition_id"])
@@ -125,7 +125,7 @@ class AliceAgent(DemoAgent):
             if credentials:
                 for row in sorted(
                     credentials,
-                    key=lambda c: int(c["cred_info"]["attrs"]["timestamp"]),
+                    key=lambda c: int(c["cred_info"]["attrs"]["issue_timestamp"]),
                     reverse=True,
                 ):
                     for referent in row["presentation_referents"]:
@@ -157,8 +157,9 @@ class AliceAgent(DemoAgent):
                 "requested_attributes": revealed,
                 "self_attested_attributes": self_attested,
             }
+            print (request)
 
-            log_status("#26 Send the proof to X")
+            log_status("#26 Send the proof")
             await self.admin_POST(
                 (
                     "/present-proof/records/"
@@ -243,8 +244,9 @@ async def main(start_port: int, no_auto: bool = False, show_timing: bool = False
         async for option in prompt_loop(
             "   (3) Send Message\n"
             "   (4) Input New Invitation\n"
+            "   (5) See received credentials/ Wallet details\n"
             "   (X) Exit?\n"
-            "[3/4/X]: "
+            "[3/4/5/X]: "
         ):
             if option is not None:
                 option = option.strip()
@@ -262,6 +264,16 @@ async def main(start_port: int, no_auto: bool = False, show_timing: bool = False
                 # handle new invitation
                 log_status("Input new invitation details")
                 await input_invitation(agent)
+
+            else:
+                log_status("You received the following credential(s)")
+                creds_list = await agent.admin_GET("/credentials")
+                if not creds_list['results']:
+                    log_status("You have't received any credentials yet.")
+                else:
+                    creds_list['results'].sort(key=lambda x: int(x['attrs']['issue_timestamp']), reverse=True)
+                    log_json(creds_list, label="Credential(s):")
+
 
         if show_timing:
             timing = await agent.fetch_timing()

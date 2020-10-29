@@ -5,10 +5,11 @@ import os
 import random
 import sys
 import time
-import string
-from datetime import date
+from datetime import date, datetime, timedelta
 from uuid import uuid4
-from datetime import date, datetime
+import string
+from motor import motor_asyncio
+import coloredlogs
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # noqa
 
@@ -26,18 +27,21 @@ from runners.support.utils import (
 CRED_PREVIEW_TYPE = "https://didcomm.org/issue-credential/1.0/credential-preview"
 SELF_ATTESTED = os.getenv("SELF_ATTESTED")
 
-LOGGER = logging.getLogger(__name__)
+# Create a logger object.
+logger = logging.getLogger(__name__)
+
+coloredlogs.install(level='DEBUG', logger=logger)
 
 TAILS_FILE_COUNT = int(os.getenv("TAILS_FILE_COUNT", 100))
 
 
-class UmcgAgent(DemoAgent):
+class UMCGAgent(DemoAgent):
     def __init__(self, http_port: int, admin_port: int, **kwargs):
         super().__init__(
-            "Umcg Agent",
+            "UMCG Agent",
             http_port,
             admin_port,
-            prefix="Umcg",
+            prefix="UMCG",
             extra_args=["--auto-accept-invites", "--auto-accept-requests"],
             **kwargs,
         )
@@ -47,9 +51,28 @@ class UmcgAgent(DemoAgent):
         # TODO define a dict to hold credential attributes based on
         # the credential_definition_id
         self.cred_attrs = {}
+        self.cred_def_id = None
+        self.disease_specification = "melanoma"
 
     async def detect_connection(self):
         await self._connection_ready
+
+    #Make an asynchronous connection to the database.
+    async def connect_mongo(self):
+        self.conn = motor_asyncio.AsyncIOMotorClient("mongodb1:27017")
+        self.db = self.conn['kafka']
+        self.coll = self.db['agg_test']
+        return self.coll
+
+    #Retrieve data from the database.
+    async def get_data_list(self):
+        data_list = []
+        # test = await self.coll.find_one({}, {"_id": False})
+        async for document in self.coll.find({}, {"_id": False}):
+            data_list.append(document)
+        n = await self.coll.count_documents({})
+        logger.info(n)
+        return data_list
 
     @property
     def connection_ready(self):
@@ -95,6 +118,7 @@ class UmcgAgent(DemoAgent):
 
     async def handle_present_proof(self, message):
         state = message["state"]
+        variables_dict = {}
 
         presentation_exchange_id = message["presentation_exchange_id"]
         self.log(
@@ -106,7 +130,7 @@ class UmcgAgent(DemoAgent):
 
         if state == "presentation_received":
             # TODO handle received presentations
-            log_status("#27 Process the proof provided by X")
+            log_status("#27 Process the proof provided")
             log_status("#28 Check if proof is valid")
             proof = await self.admin_POST(
                 f"/present-proof/records/{presentation_exchange_id}/verify-presentation"
@@ -120,6 +144,7 @@ class UmcgAgent(DemoAgent):
             is_proof_of_education = (
                 pres_req["name"] == "Proof of Education"
             )
+
             if is_proof_of_education:
                 log_status("#28.1 Received proof of education, check claims")
                 for (referent, attr_spec) in pres_req["requested_attributes"].items():
@@ -131,7 +156,27 @@ class UmcgAgent(DemoAgent):
                     # just print out the schema/cred def id's of presented claims
                     self.log(f"schema_id: {id_spec['schema_id']}")
                     self.log(f"cred_def_id {id_spec['cred_def_id']}")
-                # TODO placeholder for the next step
+
+                
+                # If the prover has presented all proofs, we check if his research belongs \
+                # to the disease specific data that this insitution holds, that is, melanoma cancer.
+                if proof['verified'] == "true":
+                    for (referent, attr_spec) in pres_req["requested_attributes"].items():
+                        variables_dict[attr_spec['name']] = pres['requested_proof']['revealed_attrs'][referent]['raw']
+
+                    if variables_dict['role_type'] != self.disease_specification:
+                        logger.info(f"This institute is only open for {self.disease_specification} specific research data")
+                        self.log("This is the collection ", self.coll)
+                        return
+
+                    research_data = await self.get_data_list()
+                    self.log(f"This is the data for {self.disease_specification}", research_data)
+
+                    # If every check passes we issue a credential to the researcher.
+                    await issue_access(
+                        self, variables_dict['name'], variables_dict['affiliation'], 
+                        variables_dict['role'], variables_dict['role_type']
+                    )
             else:
                 # in case there are any other kinds of proofs received
                 self.log("#28.1 Received ", message["presentation_request"]["name"])
@@ -140,6 +185,50 @@ class UmcgAgent(DemoAgent):
     async def handle_basicmessages(self, message):
         self.log("Received message:", message["content"])
 
+    async def close_connection(self):
+        self.conn.close()
+
+
+#This function issues a credential to the researcher. 
+async def issue_access(
+    agent, name, 
+    affiliation, role, role_type
+    ):
+    issue_date = datetime.date(datetime.now())
+    expiry_date = issue_date + timedelta(days=31)
+    # TODO credential offers
+    # TODO Replace date with expiry and issue date
+    agent.cred_attrs[agent.cred_def_id] = {
+        "researcher_id": ''.join(random.choices(string.ascii_uppercase + string.digits, k = 8)),
+        "name": name,
+        "issue_date": str(issue_date),
+        "issue_timestamp": issue_date.strftime("%s"),
+        "expiry_date": str(expiry_date),
+        "expiry_timestamp": expiry_date.strftime("%s"),
+        "affiliation": affiliation,
+        "role": role,
+        "role_type": role_type
+    }
+    cred_preview = {
+        "@type": CRED_PREVIEW_TYPE,
+        "attributes": [
+            {"name": n, "value": v}
+            for (n, v) in agent.cred_attrs[agent.cred_def_id].items()
+        ],
+    }
+    offer_request = {
+        "connection_id": agent.connection_id,
+        "cred_def_id": agent.cred_def_id,
+        "comment": f"Offer on cred def id {agent.cred_def_id}",
+        "credential_preview": cred_preview,
+    }
+    await agent.admin_POST(
+        "/issue-credential/send-offer",
+        offer_request
+    )
+    return
+
+#This function accepts JSON data from the terminal.
 async def handle_credential_json(agent):
     async for details in prompt_loop("Requested Credential details: "):
         if details:
@@ -165,11 +254,12 @@ async def main(start_port: int,
 
     try:
         log_status("#1 Provision an agent and wallet, get back configuration details")
-        agent = UmcgAgent(
+        agent = UMCGAgent(
             start_port, start_port + 1, genesis_data=genesis, timing=show_timing
         )
         await agent.listen_webhooks(start_port + 2)
         await agent.register_did()
+        await agent.connect_mongo()
 
         with log_timer("Startup duration:"):
             await agent.start_process()
@@ -195,9 +285,13 @@ async def main(start_port: int,
             ) = await agent.register_schema_and_creddef(
                 "employee id schema",
                 version,
-                ["employee_id", "name", "date", "data"],
+                [
+                    "researcher_id", "name", "issue_date", "issue_timestamp",
+                    "expiry_date", "expiry_timestamp", "affiliation", "role",
+                    "role_type"
+                ],
             )
-
+            agent.cred_def_id = credential_definition_id
         with log_timer("Generate invitation duration:"):
             # Generate an invitation
             log_status(
@@ -217,33 +311,34 @@ async def main(start_port: int,
         exchange_tracing = False
 
         async for option in prompt_loop(
-            "(1) Issue Credential, (2) Send Proof Request, "
+            "(1) Issue Visa Credential, (2) Send Proof Request, "
             + "(3) Send Message (X) Exit? [1/2/3/X] "
         ):
             option = option.strip()
             if option in "xX":
+                #Close the connection on exit.
+                await agent.close_connection()
                 break
 
             elif option == "1":
                 log_status("#13 Enter details to issue credential.")
                 cred_details = await handle_credential_json(agent)
                 log_status(f"#13 Issue credential offer to {cred_details['name']}")
+                issue_date = str(datetime.date(datetime.now()))
+                expiry_date = str(issue_date + timedelta(days=31))
                 # TODO credential offers
                 # TODO Replace date with expiry and issue date
                 agent.cred_attrs[credential_definition_id] = {
-                    "employee_id": ''.join(random.choices(string.ascii_uppercase + string.digits, k = 8)),
+                    "researcher_id": ''.join(random.choices(string.ascii_uppercase + string.digits, k = 8)),
                     "name": cred_details['name'],
-                    "date": date.isoformat(date.today()),
-                    "data": cred_details['data']
+                    "issue_date": issue_date,
+                    "issue_timestamp": issue_date.strftime("%s"),
+                    "expiry_date": expiry_date,
+                    "expiry_timestamp": expiry_date.strftime("%s"),
+                    "affiliation": cred_details['affiliation'],
+                    "role": cred_details['role'],
+                    "role_type": cred_details['role_type']
                 }
-                #log_status("#13 Issue credential offer to X")
-                # TODO credential offers
-                #agent.cred_attrs[credential_definition_id] = {
-                #    "employee_id": "UMCG0009",
-                #    "name": "Alice Smith",
-                #    "date": date.isoformat(date.today()),
-                #    "position": "CEO"
-                #}
                 cred_preview = {
                     "@type": CRED_PREVIEW_TYPE,
                     "attributes": [
@@ -269,37 +364,54 @@ async def main(start_port: int,
                         "restrictions": [{"schema_name": "degree schema"}]
                     },
                     {
+                        "name": "issue_date",
+                        "restrictions": [{"schema_name": "degree schema"}]
+                    },
+                    {
                         "name": "expiry_date",
                         "restrictions": [{"schema_name": "degree schema"}]
                     },
                     {
-                        "name": "role",
+                        "name": "degree",
                         "restrictions": [{"schema_name": "degree schema"}]
                     },
                     {
                         "name": "affiliation",
+                        "value": "UA" or "UG",
+                        "restrictions": [{"schema_name": "degree schema"}]
+                    },
+                    {
+                        "name": "role",
+                        "value": "Researcher" or "researcher",
+                        "restrictions": [{"schema_name": "degree schema"}]
+                    },
+                    {
+                        "name": "role_type",
+                        "value": "Melanoma" or "melanoma",
                         "restrictions": [{"schema_name": "degree schema"}]
                     }
                 ]
                 req_preds = [
-                    # test zero-knowledge proofs
-                    #{
-                    #    "name": "age",
-                    #    "p_type": ">=",
-                    #    "p_value": 18,
-                    #    "restrictions": [{"issuer_did": agent.did}],
-                    #}
+                    # Check if the credential has expired or not.
+                    {
+                        "name": "expiry_timestamp",
+                        "p_type": ">",
+                        "p_value": int(datetime.timestamp(datetime.now())),
+                        "restrictions": [{"schema_name": "degree schema"}],
+                    }
                 ]
                 indy_proof_request = {
                     "name": "Proof of Education",
                     "version": "1.0",
+                    "nonce": str(uuid4().int),
                     "requested_attributes": {
-                        f"0_{req_attr['name']}_uuid": req_attr for req_attr in req_attrs
+                        f"0_{req_attr['name']}_uuid": req_attr
+                        for req_attr in req_attrs
                     },
                     "requested_predicates": {
                         f"0_{req_pred['name']}_GE_uuid": req_pred
                         for req_pred in req_preds
-                    },
+                    }
                 }
                 proof_request_web_request = {
                     "connection_id": agent.connection_id,
@@ -329,7 +441,7 @@ async def main(start_port: int,
             if agent:
                 await agent.terminate()
         except Exception:
-            LOGGER.exception("Error terminating agent:")
+            logger.exception("Error terminating agent:")
             terminated = False
 
     await asyncio.sleep(0.1)
@@ -341,7 +453,7 @@ async def main(start_port: int,
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description="Runs an Umcg demo agent.")
+    parser = argparse.ArgumentParser(description="Runs an UMCG demo agent.")
     parser.add_argument(
         "-p",
         "--port",

@@ -10,7 +10,7 @@ from urllib.parse import urlparse
 import base64
 import binascii
 
-from qrcode import QRCode
+
 
 from aiohttp import ClientError
 
@@ -34,7 +34,7 @@ LOGGER = logging.getLogger(__name__)
 TAILS_FILE_COUNT = int(os.getenv("TAILS_FILE_COUNT", 100))
 
 
-class FaberAgent(DemoAgent):
+class UoAAgent(DemoAgent):
     def __init__(
         self,
         http_port: int,
@@ -44,10 +44,10 @@ class FaberAgent(DemoAgent):
         **kwargs,
     ):
         super().__init__(
-            "Faber.Agent",
+            "UoA.Agent",
             http_port,
             admin_port,
-            prefix="Faber",
+            prefix="UoA",
             tails_server_base_url=tails_server_base_url,
             extra_args=[]
             if no_auto
@@ -92,7 +92,7 @@ class FaberAgent(DemoAgent):
         )
 
         if state == "request_received":
-            log_status("#17 Issue credential to X")
+            log_status("#17 Issue credential")
             # issue credentials based on the credential_definition_id
             cred_attrs = self.cred_attrs[message["credential_definition_id"]]
             cred_preview = {
@@ -171,7 +171,7 @@ async def main(
 
     try:
         log_status("#1 Provision an agent and wallet, get back configuration details")
-        agent = FaberAgent(
+        agent = UoAAgent(
             start_port,
             start_port + 1,
             genesis_data=genesis,
@@ -221,32 +221,23 @@ async def main(
 
         agent.connection_id = connection["connection_id"]
 
-        qr = QRCode()
-        qr.add_data(connection["invitation_url"])
-        log_msg(
-            "Use the following JSON to accept the invite from another demo agent."
-            " Or use the QR code to connect from a mobile agent."
-        )
+        
         log_msg(
             json.dumps(connection["invitation"]), label="Invitation Data:", color=None
         )
-        qr.print_ascii(invert=True)
 
         log_msg("Waiting for connection...")
         await agent.detect_connection()
 
         exchange_tracing = False
         options = (
-            "    (1) Issue Credential\n"
+            "    (1) Issue Passport Credential\n"
             "    (2) Send Proof Request\n"
             "    (3) Send Message\n"
         )
         if revocation:
             options += "    (4) Revoke Credential\n" "    (5) Publish Revocations\n"
-        options += "    (T) Toggle tracing on credential/proof exchange\n"
-        options += "    (X) Exit?\n[1/2/3/{}T/X] ".format(
-            "4/5/6/" if revocation else ""
-        )
+        options += "    (X) Exit?\n[1/2/3/X] "
         async for option in prompt_loop(options):
             if option is not None:
                 option = option.strip()
@@ -254,15 +245,8 @@ async def main(
             if option is None or option in "xX":
                 break
 
-            elif option in "tT":
-                exchange_tracing = not exchange_tracing
-                log_msg(
-                    ">>> Credential/Proof Exchange Tracing is {}".format(
-                        "ON" if exchange_tracing else "OFF"
-                    )
-                )
             elif option == "1":
-                log_status("Enter credential details")
+                log_status("Enter passport credential details")
                 cred_detail = await handle_credential_json(agent)
                 try:
                     "name" and "age" and "degree" and "role" and "role_type" and "affiliation" in cred_detail.keys()
@@ -270,7 +254,7 @@ async def main(
                     log_msg("The credential details input should have name, age and degree")
                     raise ("The credential details input should have name, age and degree")
                 
-                log_status("#13 Issue credential offer to X")
+                log_status("#13 Issue credential offer")
                 issue_date = datetime.date(datetime.now())
                 cred_detail['issue_date'] = str(issue_date)
                 cred_detail['issue_timestamp'] = issue_date.strftime("%s")
@@ -414,7 +398,7 @@ async def main(
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description="Runs a Faber demo agent.")
+    parser = argparse.ArgumentParser(description="Runs a UoA demo agent.")
     parser.add_argument("--no-auto", action="store_true", help="Disable auto issuance")
     parser.add_argument(
         "-p",
@@ -455,7 +439,7 @@ if __name__ == "__main__":
             import pydevd_pycharm
 
             print(
-                "Faber remote debugging to "
+                "UoA remote debugging to "
                 f"{PYDEVD_PYCHARM_HOST}:{PYDEVD_PYCHARM_CONTROLLER_PORT}"
             )
             pydevd_pycharm.settrace(
